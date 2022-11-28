@@ -95,24 +95,88 @@ async function phaisinh(){
     return response_tele;
 }
 
-async function phaisinh_nuocngoai(){
-
-}
-function getFormattedDate(t) {
-  var date = new Date(t);
-  var day = ("0" + date.getDate()).slice(-2);
-  var str = date.getFullYear() + "-" + (date.getMonth() + 1).padStart(2, '0') + "-" + date.getDate().padStart(2, '0') + "T" +  date.getHours().padStart(2, '0') + ":" + date.getMinutes().padStart(2, '0') + ":" + date.getSeconds().padStart(2, '0')+"."+date.getMilliseconds().padStart(3, '0')
-  return str;
-}
 
 
-async function phaisinh_nuocngoai(){
-  let time_now = new Date().getTime();
-  let date_now = getFormattedDate(time_now)
-  let date_previous = getFormattedDate(time_now - 1000*60*60*24*30);
-  console.log(date_now);
-  console.log(date_previous);
+
+async function ps_nn(){
+  return await pages[1].evaluate(async ()=>{
+    function getFormatedDate(t){
+      let date = new Date(t);
+      let year = date.getFullYear()
+      let month = ("0" + (date.getMonth()+1)).slice(-2);
+      let day = ('0' + date.getDate()).slice(-2);
+      let hours = ('0' + date.getHours()).slice(-2);
+      let minutes = ('0' + date.getMinutes()).slice(-2);
+      let seconds = ('0' + date.getSeconds()).slice(-2);
+      let miliseconds = ('00' + date.getMilliseconds()).slice(-3);
+      let str = year+'-'+month+'-'+day+'T'+hours+':'+minutes+':'+seconds+'.'+miliseconds;
+      return str;
+    }
+    function justified_row(a, b, c, d, l){
+      let space_length = l - a.length - b.length - c.length -d.length;
+      if (space_length<0) return a+b+c;
+      let spaces = '';
+      for (let i=0;i<space_length/3;++i)
+        spaces += ' ';
+      return a + spaces + b + spaces + c + spaces + d;
+    }
+
+    function insert_at_position(a, b, position){
+      return [a.slice(0, position), b, a.slice(position+b.length)].join('');
+    }
+
+    let raw = "[{\"symbol\":\"VN30F2212\",\"changeRecords\":{\"BasicInfo\":0,\"BasicPrice\":0,\"Price\":0,\"BidAsk\":0,\"PTInfo\":0,\"ForeignTrade\":0,\"RealtimeStatistic\":0}},{\"symbol\":\"VN30F2301\",\"changeRecords\":{\"BasicInfo\":0,\"BasicPrice\":0,\"Price\":0,\"BidAsk\":0,\"PTInfo\":0,\"ForeignTrade\":0,\"RealtimeStatistic\":0}},{\"symbol\":\"VN30F2303\",\"changeRecords\":{\"BasicInfo\":0,\"BasicPrice\":0,\"Price\":0,\"BidAsk\":0,\"PTInfo\":0,\"ForeignTrade\":0,\"RealtimeStatistic\":0}},{\"symbol\":\"VN30F2306\",\"changeRecords\":{\"BasicInfo\":0,\"BasicPrice\":0,\"Price\":0,\"BidAsk\":0,\"PTInfo\":0,\"ForeignTrade\":0,\"RealtimeStatistic\":0}}]";
+    let requestOptions = {
+      method: 'POST',
+      headers: {"Content-Type": "application/json;charset=UTF-8"},
+      body: raw,
+      redirect: 'follow'
+    };
+
+    let res = await fetch("https://fwtapi4.fialda.com/api/services/app/Common/GetDerInfos", requestOptions);
+    let res_text = await res.text();
+    let all_ps = await JSON.parse(res_text);
+    all_ps = all_ps.result;
+
+    let response_tele = '';
+    let index = 0;
+
+    for(let symbol in all_ps){
+      if(++index > 2) break;
+      response_tele += symbol + '     Mua       Bán      M-B\n'
+      let t_now = new Date().getTime();
+      let t_prev = t_now - 1000*60*60*24*30;
+      let fromDate = getFormatedDate(t_prev);
+      let toDate = getFormatedDate(t_now);
+      let req_url = 'https://fwtapi4.fialda.com/api/services/app/StockInfo/GetHistoricalData_ForeignerTrading?symbol='+symbol+'&fromDate='+fromDate+'&toDate='+toDate+'&pageNumber=1&pageSize=5'
+      //console.log(req_url);
+      
+      let res = await fetch(req_url);
+      res = await res.text();
+      let items = JSON.parse(res).result.items;
+      console.log(items);
+
+
+
+      for (let i=0;i<items.length; ++i){
+        console.log('items[i]',items[i]);
+        let date = items[i].tradingTime.split('T')[0]
+        let foreignBuyVol = items[i].foreignBuyVol.toString();
+        let foreignSellVol = items[i].foreignSellVol.toString();
+        let diff = (items[i].foreignBuyVol - items[i].foreignSellVol).toString();
+        let row = date + '                                 ';
+        row =  foreignBuyVol[0] == '-' ? insert_at_position(row, foreignBuyVol, 14):insert_at_position(row, foreignBuyVol, 15);
+        row = foreignSellVol[0] == '-' ? insert_at_position(row, foreignSellVol, 24):insert_at_position(row, foreignSellVol, 25);
+        row = diff[0] == '-' ? insert_at_position(row, diff, 34):insert_at_position(row, diff, 35);
+        //response_tele += justified_row(date, foreignBuyVol, foreignSellVol, diff, 40) +'\n';
+        response_tele += row + '\n';
+      }
+      response_tele+='\n';
+    }
+    return response_tele;
+  });
 }
+
 
 async function get_info_cophieu(ma_cp){
   await page1.goto('https://fwt.fialda.com/co-phieu/'+ma_cp+'/kythuat' ,{ waitUntil: 'networkidle0' });
@@ -142,6 +206,40 @@ async function get_info_cophieu(ma_cp){
   });
 }
 
+async function thegioi(){
+  return await pages[1].evaluate(async () => {
+    function insert_at_position(a, b, position){
+      return [a.slice(0, position), b, a.slice(position+b.length)].join('');
+    }
+    var requestOptions = {
+      method: 'GET',
+      redirect: 'follow'
+    };
+    let res = await fetch('https://fwtapi3.fialda.com/api/services/app/Home/GetTopWorldData', requestOptions);
+    console.log(res);
+    res = await res.text();
+    res = JSON.parse(res);
+    let worlds = res.result;
+    let response_tele = '';
+
+    for(let i=0;i<worlds.length;++i){
+      let indexName = worlds[i].indexName;
+      let currentIndex = worlds[i].currentIndex;
+      let indexChange = worlds[i].indexChange;
+      let indexPercentChange = worlds[i].indexPercentChange;
+      let row = indexName + '                       ';
+      row = insert_at_position(row, currentIndex, 10);
+      row = insert_at_position(row, indexChange, 25);
+      row = insert_at_position(row, indexPercentChange, 40);
+      //response_tele += row + '\n';
+      response_tele += indexName + '\t\t\t\t'+currentIndex+' '+indexChange+' '+indexPercentChange+'\n';
+    }
+    response_tele+='\n';
+
+    return response_tele;
+  });
+}
+
 function createWindow () {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -150,7 +248,7 @@ function createWindow () {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }
-  })
+})
 
   // and load the index.html of the app.
   mainWindow.loadFile('index.html')
@@ -218,9 +316,25 @@ bot.command('cp', async (ctx) => {
 });
 
 bot.command('ps', async (ctx) =>{
+  let texts = ctx.message.text.split(' ');
+  if(texts.length>1){
+    if(texts[1] == 'nn'){
+      let res = await ps_nn();
+      ctx.reply(res);
+    }
+  }
+  else {
     let res = await phaisinh();
     ctx.reply(res);
+  }
 });
+
+bot.command('tg', async (ctx) =>{
+  let res = await thegioi();
+  ctx.reply(res);
+});
+
+
 
 
 bot.launch();
