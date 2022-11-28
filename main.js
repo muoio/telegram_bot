@@ -98,7 +98,21 @@ async function phaisinh(){
 async function phaisinh_nuocngoai(){
 
 }
+function getFormattedDate(t) {
+  var date = new Date(t);
+  var day = ("0" + date.getDate()).slice(-2);
+  var str = date.getFullYear() + "-" + (date.getMonth() + 1).padStart(2, '0') + "-" + date.getDate().padStart(2, '0') + "T" +  date.getHours().padStart(2, '0') + ":" + date.getMinutes().padStart(2, '0') + ":" + date.getSeconds().padStart(2, '0')+"."+date.getMilliseconds().padStart(3, '0')
+  return str;
+}
 
+
+async function phaisinh_nuocngoai(){
+  let time_now = new Date().getTime();
+  let date_now = getFormattedDate(time_now)
+  let date_previous = getFormattedDate(time_now - 1000*60*60*24*30);
+  console.log(date_now);
+  console.log(date_previous);
+}
 
 async function get_info_cophieu(ma_cp){
   await page1.goto('https://fwt.fialda.com/co-phieu/'+ma_cp+'/kythuat' ,{ waitUntil: 'networkidle0' });
